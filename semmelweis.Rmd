@@ -1,0 +1,139 @@
+---
+title: "Estudio de caso: el lavado de manos y el Dr. Semmelweis"
+author: Sergio Uribe
+output: html_notebook
+---
+
+
+```{r}
+library(tidyverse)
+```
+```{r}
+df <- read_csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vRigP41ihMCW41ecYxTvFtvLKqG86OoURsbwuB0okH-INY_wrM0mbbf-yANf2o6CTGWtX3EPQCnzhVJ/pub?gid=0&single=true&output=csv")
+```
+
+```{r}
+head(df)
+```
+```{r}
+summary(df)
+```
+
+```{r}
+boxplot(births ~ clinic, data = df)
+```
+```{r}
+boxplot(deaths ~ clinic, data = df)
+```
+
+Calcular la proporción x 100 de muertos por parto
+
+```{r}
+mutate(df, prop_muertes = deaths/births * 100)
+```
+
+Graficar la proporción de muertes por año por clínica
+
+```{r}
+df %>% 
+  mutate(prop_muertes = deaths/births * 100) %>% 
+  ggplot(aes(x = year, y = prop_muertes, colour = clinic)) + 
+  geom_line() + 
+  labs(colour = "Clínica", y = "Proporción de muertes x 100", 
+       x = "Año", title = "Proporción de muertes por año y clínica") +
+  theme_minimal() +
+   geom_errorbar(aes(ymin = prop_muertes-sd,
+                     ymax = prop_muertes+sd), 
+                 width=.1, 
+    position=position_dodge(0.05)) 
+  
+```
+
+**Porqué  las diferencias?**
+En la clínica 1 atendían médicos y estudiantes de medicina, mientras que en la 2 matronas y estudiantes de obstetricia
+
+
+```{r}
+df %>% 
+  mutate(prop_muertes = deaths/births * 100) %>% 
+  group_by(clinic) %>% 
+  summarise(Mean_prop_deaths = mean(prop_muertes), sd = sd(prop_muertes))
+```
+
+Vamos a comparar el promedio de muertes por clínica con un t-test
+
+```{r}
+library(broom)
+```
+
+```{r}
+df %>% 
+  mutate(prop_muertes = deaths/births * 100) %>%
+  do(tidy(t.test(prop_muertes ~ clinic, data = .)))
+```
+
+  
+
+Entonces, Semmelweiz decide hacer una prueba, y manda: "Wash your hands!"
+
+```{r}
+df_2 <- read_csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vRigP41ihMCW41ecYxTvFtvLKqG86OoURsbwuB0okH-INY_wrM0mbbf-yANf2o6CTGWtX3EPQCnzhVJ/pub?gid=994982495&single=true&output=csv")
+```
+
+Veamos...en el verano de 1847 les dijo a todos en el hospital: "Lávense las manos!"
+```{r}
+df_2 %>% 
+  mutate(prop_death = deaths/births*100) %>% 
+  ggplot(aes(x = date, y = prop_death)) + 
+  geom_line()
+```
+
+Veamos que pasó antes y después
+
+```{r}
+lavado_inicio <-  '1847-06-01' 
+```
+
+Divido antes y después del lavado de manos
+
+```{r}
+df_2 %>% 
+  mutate(prop_death = deaths/births*100) %>%
+  mutate(tiempo = case_when(
+    date < lavado_inicio ~ "antes", 
+    TRUE ~ "despues")) %>% 
+  ggplot(aes(x = date, y = prop_death, colour = tiempo)) + 
+  geom_line() + 
+  labs(title = "Efecto del lavado de manos", 
+       colour = "Tiempo", 
+       y = "Proporción de muertes x 100", 
+       x = "Fecha")
+
+```
+
+```{r}
+df_2 %>% 
+  mutate(prop_death = deaths/births*100) %>%
+  mutate(tiempo = case_when(
+    date < lavado_inicio ~ "antes", 
+    TRUE ~ "despues")) %>% 
+  group_by(tiempo) %>% 
+  summarise("Promedio de prop. muertes" = mean(prop_death), 
+            sd = sd(prop_death))
+```
+
+```{r}
+df_2 %>% 
+  mutate(prop_death = deaths/births*100) %>%
+  mutate(tiempo = case_when(
+    date < lavado_inicio ~ "antes", 
+    TRUE ~ "despues")) %>% 
+  group_by(tiempo) %>% 
+  ggplot(aes(x = tiempo, y = prop_death)) +
+  geom_boxplot() + 
+  theme_minimal() + 
+  labs(title = "Promedio de prop. muertes antes y después del lavado de manos", 
+       y = "Proporción de muertes x 100 nacimientos", 
+       x = "Momento")
+```
+
